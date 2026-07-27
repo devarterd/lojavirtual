@@ -40,10 +40,20 @@
   <main class="container section">
     <h1>Catálogo</h1>
 
+    <!-- BARRA DE CATEGORIAS / FILTROS -->
+    <div class="filter-container" id="categoryFilters">
+      <button class="filter-btn active" data-categoria="todos">Todos</button>
+      <button class="filter-btn" data-categoria="perfumes">Perfumes</button>
+      <button class="filter-btn" data-categoria="camisas">Camisas</button>
+      <button class="filter-btn" data-categoria="garrafas">Garrafas</button>
+      <button class="filter-btn" data-categoria="variedades">Variedades</button>
+    </div>
+
     <div class="grid" id="productGrid">
       <!-- produtos entram aqui -->
     </div>
   </main>
+  
   <script src="js/shared.js"></script>
 <script src="js/catalogo.js?v=1.0.0"></script>
 </body>

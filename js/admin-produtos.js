@@ -1,6 +1,5 @@
-const API_URL = window.location.hostname.includes("github.io")
-  ? "https://lojavirtual-production.up.railway.app"
-  : "http://localhost:3000";
+// Usa a API_URL vinda do shared.js
+const API_URL = window.API_URL;
 
 const token = localStorage.getItem("admin_token");
 if (!token) window.location.href = "login.html";
@@ -20,6 +19,7 @@ const f_nome = document.getElementById("f_nome");
 const f_marca = document.getElementById("f_marca");
 const f_volume = document.getElementById("f_volume");
 const f_preco = document.getElementById("f_preco");
+const f_categoria = document.getElementById("f_categoria");
 
 // ✅ NOVO: input file (substitui f_imagem)
 const f_imagemFile = document.getElementById("f_imagemFile");
@@ -114,6 +114,7 @@ function abrirFormNovo() {
   f_marca.value = "";
   f_volume.value = "100ml";
   f_preco.value = "0";
+  if (f_categoria) f_categoria.value = "perfumes";
   f_desc.value = "";
   f_ativo.value = "true";
 
@@ -126,6 +127,7 @@ function abrirFormNovo() {
 }
 
 function abrirFormEditar(p) {
+  console.log("Produto clicado para editar:", p); // 👈 ADICIONA ESSA LINHA PARA A GENTE VER O BANCO
   editId = p.id;
   formTitle.textContent = `Editar produto #${p.id}`;
   formMsg.textContent = "";
@@ -135,6 +137,7 @@ function abrirFormEditar(p) {
   f_marca.value = p.marca || "";
   f_volume.value = p.volume || "";
   f_preco.value = String(p.preco ?? 0);
+  if (f_categoria) f_categoria.value = (p.categoria || "perfumes").toLowerCase();
   f_desc.value = p.descricao || "";
   f_ativo.value = String(!!p.ativo);
 
@@ -293,6 +296,7 @@ async function salvarProduto() {
       nome: f_nome.value.trim(),
       marca: f_marca.value.trim(),
       volume: f_volume.value.trim(),
+      categoria: f_categoria ? f_categoria.value : "perfumes", // 👈 LINHA ADICIONADA AQUI
       preco: Number(String(f_preco.value).replace(",", ".")),
       imagem: imagemUrl || imagemAtual,
       descricao: f_desc.value.trim(),

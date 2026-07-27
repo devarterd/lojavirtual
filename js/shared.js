@@ -1,7 +1,6 @@
 // URL da API (local ou produção)
-window.API_URL = window.location.hostname.includes("github.io")
-  ? "https://lojavirtual-production.up.railway.app"
-  : "http://localhost:3000";
+// URL da API (Forçada para o Railway em dev local e produção)
+window.API_URL = "https://lojavirtual-production.up.railway.app";
 
 console.log("✅ shared.js carregado");
 function getCarrinho() {
