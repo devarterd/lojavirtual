@@ -1,9 +1,7 @@
-const API_URL = window.location.hostname.includes("github.io")
-  ? "https://lojavirtual-production.up.railway.app"
-  : "http://localhost:3000";
+const API_URL = window.API_URL;
 const token = localStorage.getItem("admin_token");
 if (!token) {
-  window.location.href = "login.html";
+  window.location.replace("login.html");
 }
 
 const listaEl = document.querySelector("#pedidosLista");
@@ -14,10 +12,31 @@ const statTotalHoje = document.querySelector("#statTotalHoje");
 const statTotalGeral = document.querySelector("#statTotalGeral");
 const filtersEl = document.querySelector("#adminFilters");
 let filtroAtual = "TODOS";
+let ultimaSolicitacaoPedidos = 0;
+
+function encerrarSessao() {
+  localStorage.removeItem("admin_token");
+  window.location.replace("login.html");
+}
+
+async function requisicaoAdmin(url, opcoes = {}) {
+  const headers = new Headers(opcoes.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+
+  const resposta = await fetch(url, { ...opcoes, headers });
+  if (resposta.status === 401) {
+    encerrarSessao();
+    const erro = new Error("Sua sessão expirou.");
+    erro.sessaoExpirada = true;
+    throw erro;
+  }
+
+  return resposta;
+}
 
 async function carregarResumo(){
   try{
-    const resp = await fetch(`${API_URL}/api/admin/resumo`, {
+    const resp = await requisicaoAdmin(`${API_URL}/api/admin/resumo`, {
   headers: { Authorization: `Bearer ${token}` }
 });
     if(!resp.ok) throw new Error("Falha ao buscar resumo");
@@ -30,18 +49,30 @@ async function carregarResumo(){
     statTotalGeral.textContent = formatarPreco(dados.totalGeral);
 
   } catch(e){
+    if (e.sessaoExpirada) return;
     console.error(e);
-    // deixa “—” se der erro, sem travar a página
   }
 }
 
 function formatarPreco(valor){
-  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return "—";
+  return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function formatarData(iso){
   const d = new Date(iso);
-  return d.toLocaleString("pt-BR");
+  return Number.isNaN(d.getTime()) ? "Data indisponível" : d.toLocaleString("pt-BR");
+}
+
+function escaparHtml(valor) {
+  return String(valor ?? "").replace(/[&<>'\"]/g, (caractere) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    "\"": "&quot;",
+  }[caractere]));
 }
 
 function criarCardPedido(pedido){
@@ -69,7 +100,7 @@ function criarCardPedido(pedido){
         <button class="btn btn--small adminSave" data-save="${pedido.id}">Salvar</button>
 
         <div class="adminTotal">${formatarPreco(pedido.total)}</div>
-        <div class="muted">${pedido.pagamento}</div>
+        <div class="muted">${escaparHtml(pedido.pagamento)}</div>
       </div>
     </div>
 
@@ -90,7 +121,7 @@ function criarCardPedido(pedido){
       itensEl.innerHTML = (pedido.itens || []).map(item => `
         <div class="adminItemRow">
           <div>
-            <strong>${item.nome}</strong>
+            <strong>${escaparHtml(item.nome)}</strong>
             <div class="muted">${item.quantidade}x • ${formatarPreco(item.preco)}</div>
           </div>
           <div class="adminItemSubtotal">${formatarPreco(item.subtotal)}</div>
@@ -100,8 +131,8 @@ function criarCardPedido(pedido){
   });
 
   // Salvar status
-  const saveBtn = div.querySelector(`[data-save="${pedido.id}"]`);
-  const selectEl = div.querySelector(`[data-status="${pedido.id}"]`);
+  const saveBtn = div.querySelector(".adminSave");
+  const selectEl = div.querySelector(".adminSelect");
 
   saveBtn.addEventListener("click", async () => {
     
@@ -110,7 +141,7 @@ function criarCardPedido(pedido){
       const textoOriginal = saveBtn.textContent;
       saveBtn.textContent = "Salvando...";
 
-      const resp = await fetch(`${API_URL}/api/pedidos/${pedido.id}/status`, {
+      const resp = await requisicaoAdmin(`${API_URL}/api/pedidos/${pedido.id}/status`, {
   method: "PATCH",
   headers: {
     "Content-Type": "application/json",
@@ -125,12 +156,13 @@ function criarCardPedido(pedido){
       }
 
       saveBtn.textContent = "Salvo ✅";
-      carregarResumo();
-      setTimeout(() => (saveBtn.textContent = textoOriginal), 900);
+      await Promise.all([carregarResumo(), carregarPedidos(filtroAtual)]);
 
     } catch (e) {
-      alert(e.message);
-      saveBtn.textContent = "Salvar";
+      if (!e.sessaoExpirada) {
+        alert(e.message);
+        saveBtn.textContent = "Salvar";
+      }
     } finally {
       saveBtn.disabled = false;
     }
@@ -140,15 +172,17 @@ function criarCardPedido(pedido){
 }
 
 async function carregarPedidos(status = "TODOS"){
+  const solicitacaoAtual = ++ultimaSolicitacaoPedidos;
   try{
     listaEl.innerHTML = `<p class="muted">Carregando...</p>`;
 
-    const resp = await fetch(`${API_URL}/api/pedidos?status=${encodeURIComponent(status)}`, {
+    const resp = await requisicaoAdmin(`${API_URL}/api/pedidos?status=${encodeURIComponent(status)}`, {
   headers: { Authorization: `Bearer ${token}` }
 });
     if(!resp.ok) throw new Error("Falha ao buscar pedidos");
 
     const pedidos = await resp.json();
+    if (solicitacaoAtual !== ultimaSolicitacaoPedidos) return;
 
     if(!pedidos.length){
       listaEl.innerHTML = `<p class="muted">Nenhum pedido nesse filtro.</p>`;
@@ -159,9 +193,9 @@ async function carregarPedidos(status = "TODOS"){
     pedidos.forEach(p => listaEl.appendChild(criarCardPedido(p)));
 
   } catch(e){
+    if (e.sessaoExpirada || solicitacaoAtual !== ultimaSolicitacaoPedidos) return;
     console.error(e);
-    listaEl.innerHTML = `<p class="muted">Erro ao carregar pedidos.</p>`;
-    alert(e.message);
+    listaEl.innerHTML = `<p class="muted">Não foi possível carregar os pedidos. Tente atualizar a página.</p>`;
   }
 }
 function aplicarFiltro(novoFiltro){
@@ -191,8 +225,4 @@ reloadBtn.addEventListener("click", () => {
 carregarResumo();
 carregarPedidos(filtroAtual);
 const logoutBtn = document.querySelector("#logoutBtn");
-
-logoutBtn.addEventListener("click", () => {
-  localStorage.removeItem("admin_token");
-  window.location.href = "index.html";
-});
+logoutBtn.addEventListener("click", encerrarSessao);

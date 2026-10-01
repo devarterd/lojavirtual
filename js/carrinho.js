@@ -1,6 +1,4 @@
-const API_URL = window.location.hostname.includes("github.io")
-  ? "https://lojavirtual-production.up.railway.app"
-  : "http://localhost:3000";
+const API_URL = window.API_URL;
 
 const cartItemsEl = document.querySelector("#cartItems");
 const totalEl = document.querySelector("#total");
@@ -22,6 +20,7 @@ let carrinho = JSON.parse(localStorage.getItem("carrinho")) || [];
 // Pagamento salvo
 let pagamento = localStorage.getItem("pagamento") || "Pix";
 paymentSelect.value = pagamento;
+let finalizandoPedido = false;
 
 // Dados do cliente salvos (pra não perder quando atualizar/voltar)
 function carregarDadosCliente() {
@@ -92,18 +91,23 @@ function renderCarrinho() {
   carrinho.forEach((item) => {
     const div = document.createElement("div");
     div.classList.add("cartItem");
+    const nome = window.escaparHtml(item.nome);
+    const marca = window.escaparHtml(item.marca);
+    const volume = window.escaparHtml(item.volume);
+    const id = window.escaparHtml(item.id);
+    const quantidade = window.escaparHtml(item.quantidade);
 
     div.innerHTML = `
       <div class="cartTopRow">
         <div>
-          <strong>${item.nome}</strong>
-          <div class="muted">${item.marca} • ${item.volume}</div>
+          <strong>${nome}</strong>
+          <div class="muted">${marca} • ${volume}</div>
         </div>
 
         <div class="qtyControls">
-          <button class="qtyBtn" data-minus="${item.id}">−</button>
-          <div class="qtyNumber">${item.quantidade}</div>
-          <button class="qtyBtn" data-plus="${item.id}">+</button>
+          <button class="qtyBtn" data-minus="${id}">−</button>
+          <div class="qtyNumber">${quantidade}</div>
+          <button class="qtyBtn" data-plus="${id}">+</button>
         </div>
       </div>
 
@@ -158,8 +162,6 @@ clearCartBtn.addEventListener("click", () => {
 // ✅ Criar pedido no banco (agora com total + dados + endereco)
 async function criarPedidoNoBanco() {
   const formaPagamento = paymentSelect.value;
-  const total = calcularTotal();
-
   const nomeCliente = nomeClienteInput ? nomeClienteInput.value.trim() : "";
   const telefone = telefoneInput ? telefoneInput.value.trim() : "";
   const endereco = enderecoInput ? enderecoInput.value.trim() : "";
@@ -171,14 +173,11 @@ async function criarPedidoNoBanco() {
 
   const payload = {
     pagamento: formaPagamento,
-    total, // ✅ manda o total pro backend validar/usar
     nomeCliente: nomeCliente || null,
     telefone: telefone || null,
     endereco: endereco || null, // ✅ manda endereco
     itens: carrinho.map((item) => ({
       id: item.id,
-      nome: item.nome,
-      preco: item.preco,
       quantidade: item.quantidade,
     })),
   };
@@ -199,15 +198,20 @@ async function criarPedidoNoBanco() {
 
 // Finalizar no WhatsApp
 whatsappBtn.addEventListener("click", async () => {
+  if (finalizandoPedido || carrinho.length === 0) return;
+
+  const textoOriginal = whatsappBtn.textContent;
   try {
-    if (carrinho.length === 0) return;
+    finalizandoPedido = true;
+    whatsappBtn.disabled = true;
+    whatsappBtn.textContent = "Finalizando...";
 
     // salva dados (garantia)
     salvarDadosCliente();
 
     const pedido = await criarPedidoNoBanco();
 
-    const total = calcularTotal();
+    const total = pedido.total;
     const formaPagamento = paymentSelect.value;
 
     const nomeCliente = nomeClienteInput ? nomeClienteInput.value.trim() : "";
@@ -218,10 +222,9 @@ whatsappBtn.addEventListener("click", async () => {
     mensagem += `Pedido: #${pedido.id}\n\n`;
     mensagem += `Itens:\n`;
 
-    carrinho.forEach((item) => {
-      mensagem += `- ${item.nome} (${item.volume}) — ${item.quantidade}x — ${formatarPreco(
-        item.preco * item.quantidade
-      )}\n`;
+    pedido.itens.forEach((item) => {
+      const volume = item.volume ? ` (${item.volume})` : "";
+      mensagem += `- ${item.nome}${volume} — ${item.quantidade}x — ${formatarPreco(item.subtotal)}\n`;
     });
 
     mensagem += `\nTotal: ${formatarPreco(total)}\n`;
@@ -242,6 +245,13 @@ whatsappBtn.addEventListener("click", async () => {
     renderCarrinho();
   } catch (e) {
     alert(e.message);
+  } finally {
+    finalizandoPedido = false;
+    whatsappBtn.textContent = textoOriginal;
+    if (carrinho.length > 0) {
+      whatsappBtn.disabled = false;
+      whatsappBtn.style.opacity = "1";
+    }
   }
 });
 

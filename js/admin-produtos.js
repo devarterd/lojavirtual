@@ -2,7 +2,27 @@
 const API_URL = window.API_URL;
 
 const token = localStorage.getItem("admin_token");
-if (!token) window.location.href = "login.html";
+if (!token) window.location.replace("login.html");
+
+function encerrarSessao() {
+  localStorage.removeItem("admin_token");
+  window.location.replace("login.html");
+}
+
+async function requisicaoAdmin(url, opcoes = {}) {
+  const headers = new Headers(opcoes.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+
+  const resposta = await fetch(url, { ...opcoes, headers });
+  if (resposta.status === 401) {
+    encerrarSessao();
+    const erro = new Error("Sua sessão expirou.");
+    erro.sessaoExpirada = true;
+    throw erro;
+  }
+
+  return resposta;
+}
 
 const tbody = document.getElementById("produtosTbody");
 const reloadBtn = document.getElementById("reloadBtn");
@@ -90,7 +110,7 @@ async function uploadImagem(file) {
   const formData = new FormData();
   formData.append("imagem", file);
 
-  const resp = await fetch(`${API_URL}/api/admin/upload`, {
+  const resp = await requisicaoAdmin(`${API_URL}/api/admin/upload`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -166,7 +186,7 @@ function fecharForm() {
 }
 
 async function carregarProdutosAdmin() {
-  const resp = await fetch(`${API_URL}/api/admin/produtos`, { headers: headersAuth() });
+  const resp = await requisicaoAdmin(`${API_URL}/api/admin/produtos`, { headers: headersAuth() });
   const data = await resp.json().catch(() => ([]));
   if (!resp.ok) throw new Error(data.error || "Erro ao carregar produtos");
   produtosCache = data;
@@ -214,21 +234,26 @@ tr.addEventListener("mouseenter", () => {
 tr.addEventListener("mouseleave", () => {
   tr.style.background = "transparent";
 });
+    const id = window.escaparHtml(p.id);
+    const imagem = window.escaparHtml(resolverImagem(p.imagem));
+    const nome = window.escaparHtml(p.nome);
+    const marca = window.escaparHtml(p.marca);
+    const volume = window.escaparHtml(p.volume);
     tr.innerHTML = `
-      <td style="padding:12px 14px;">${p.id}</td>
+      <td style="padding:12px 14px;">${id}</td>
       <td style="padding:12px 14px;">
-        <img src="${resolverImagem(p.imagem)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #333;">
+        <img src="${imagem}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #333;">
       </td>
       <td style="padding:12px 14px;">
-        <div><strong>${p.nome}</strong></div>
-        <div class="muted">${p.marca} • ${p.volume}</div>
+        <div><strong>${nome}</strong></div>
+        <div class="muted">${marca} • ${volume}</div>
       </td>
       <td style="padding:12px 14px;">${formatarPreco(p.preco)}</td>
       <td style="padding:12px 14px;;">${p.ativo ? "SIM" : "NÃO"}</td>
       <td style="padding:12px 14px;; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn btn--outline btn--small" data-edit="${p.id}">Editar</button>
-        <button class="btn btn--outline btn--small" data-price="${p.id}">Preço</button>
-        <button class="btn btn--outline btn--small" data-toggle="${p.id}">
+        <button class="btn btn--outline btn--small" data-edit="${id}">Editar</button>
+        <button class="btn btn--outline btn--small" data-price="${id}">Preço</button>
+        <button class="btn btn--outline btn--small" data-toggle="${id}">
           ${p.ativo ? "Desativar" : "Ativar"}
         </button>
       </td>
@@ -236,9 +261,9 @@ tr.addEventListener("mouseleave", () => {
 
     tbody.appendChild(tr);
 
-    tr.querySelector(`[data-edit="${p.id}"]`).addEventListener("click", () => abrirFormEditar(p));
-    tr.querySelector(`[data-price="${p.id}"]`).addEventListener("click", () => editarPrecoRapido(p));
-    tr.querySelector(`[data-toggle="${p.id}"]`).addEventListener("click", () => toggleAtivo(p));
+    tr.querySelector("[data-edit]").addEventListener("click", () => abrirFormEditar(p));
+    tr.querySelector("[data-price]").addEventListener("click", () => editarPrecoRapido(p));
+    tr.querySelector("[data-toggle]").addEventListener("click", () => toggleAtivo(p));
   });
 }
 
@@ -252,7 +277,7 @@ async function editarPrecoRapido(p) {
     return;
   }
 
-  const resp = await fetch(`${API_URL}/api/admin/produtos/${p.id}`, {
+  const resp = await requisicaoAdmin(`${API_URL}/api/admin/produtos/${p.id}`, {
     method: "PATCH",
     headers: headersAuth(),
     body: JSON.stringify({ preco }),
@@ -265,7 +290,7 @@ async function editarPrecoRapido(p) {
 }
 
 async function toggleAtivo(p) {
-  const resp = await fetch(`${API_URL}/api/admin/produtos/${p.id}`, {
+  const resp = await requisicaoAdmin(`${API_URL}/api/admin/produtos/${p.id}`, {
     method: "PATCH",
     headers: headersAuth(),
     body: JSON.stringify({ ativo: !p.ativo }),
@@ -314,7 +339,7 @@ async function salvarProduto() {
 
     const method = editId ? "PATCH" : "POST";
 
-    const resp = await fetch(url, {
+    const resp = await requisicaoAdmin(url, {
       method,
       headers: headersAuth(),
       body: JSON.stringify(payload),

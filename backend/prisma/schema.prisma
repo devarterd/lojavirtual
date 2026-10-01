@@ -15,7 +15,8 @@ model Produto {
   preco     Float
   imagem    String?
   descricao String?
-  categoria String?  @default("perfumes") // 👈 LINHA ADICIONADA AQUI
+  categoria String?  @default("perfumes")
+  destaque  Boolean  @default(false)
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
 }

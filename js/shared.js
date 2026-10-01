@@ -1,8 +1,22 @@
-// URL da API (local ou produção)
-// URL da API (Forçada para o Railway em dev local e produção)
-window.API_URL = "https://lojavirtual-production.up.railway.app";
+// URL da API: backend local no desenvolvimento e Railway em produção.
+const emDesenvolvimento = !window.location.hostname ||
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+window.API_URL = emDesenvolvimento
+  ? "http://localhost:3000"
+  : "https://lojavirtual-production.up.railway.app";
 
 console.log("✅ shared.js carregado");
+
+window.escaparHtml = function escaparHtml(valor) {
+  return String(valor ?? "").replace(/[&<>'"]/g, (caractere) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    "\"": "&quot;",
+  }[caractere]));
+};
+
 function getCarrinho() {
   return JSON.parse(localStorage.getItem("carrinho")) || [];
 }

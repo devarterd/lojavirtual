@@ -56,21 +56,26 @@ function renderizarProdutos(listaDeProdutos) {
     card.classList.add("produto-card");
 
     const imgUrl = resolverImagem(produto.imagem);
+    const nome = window.escaparHtml(produto.nome || "");
+    const marca = window.escaparHtml(produto.marca || "");
+    const volume = window.escaparHtml(produto.volume || "");
+    const imagem = window.escaparHtml(imgUrl);
+    const produtoId = encodeURIComponent(String(produto.id ?? ""));
 
     card.innerHTML = `
-      <img class="produto-img" src="${imgUrl}" alt="${produto.nome || "Produto"}" loading="lazy">
+      <img class="produto-img" src="${imagem}" alt="${nome || "Produto"}" loading="lazy">
 
       <div class="produto-body">
         <div class="produto-top">
           <div>
-            <div class="produto-nome">${produto.nome || ""}</div>
-            <div class="produto-meta">${produto.marca || ""} • <span class="badge-volume">${produto.volume || ""}</span></div>
+            <div class="produto-nome">${nome}</div>
+            <div class="produto-meta">${marca} • <span class="badge-volume">${volume}</span></div>
           </div>
           <div class="produto-preco">${formatarPreco(produto.preco)}</div>
         </div>
 
         <div class="produto-actions">
-          <a href="produto.html?id=${produto.id}" class="produto-btn produto-btn-outline">
+          <a href="produto.html?id=${produtoId}" class="produto-btn produto-btn-outline">
             Ver produto
           </a>
 

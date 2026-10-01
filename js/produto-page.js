@@ -34,16 +34,6 @@ function formatBRL(v) {
   return Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function adicionarAoCarrinho(produto) {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  const existente = cart.find(i => i.id === produto.id);
-
-  if (existente) existente.qtd += 1;
-  else cart.push({ id: produto.id, nome: produto.nome, preco: produto.preco, imagem: produto.imagem, qtd: 1 });
-
-  localStorage.setItem("cart", JSON.stringify(cart));
-}
-
 async function carregarProduto() {
   try {
     if (!id) {
